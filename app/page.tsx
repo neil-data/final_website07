@@ -30,6 +30,7 @@ export default function App() {
   const [language, setLanguage] = useState('english');
   const [textInput, setTextInput] = useState('');
   const [showTextInput, setShowTextInput] = useState(false);
+  const [lastExtractedText, setLastExtractedText] = useState('');
   const [doctorNumber, setDoctorNumber] = useState('');
 
   const [showSettings, setShowSettings] = useState(false);
@@ -86,6 +87,34 @@ export default function App() {
     return items;
   };
 
+  const getDiagnosisText = (analysis: any) => {
+    const diagnosis = String(analysis?.diagnosis || '').trim();
+    if (diagnosis) return diagnosis;
+    const medicationCount = Array.isArray(analysis?.medications) ? analysis.medications.length : 0;
+    if (medicationCount > 0) {
+      return `Prescription detected with ${medicationCount} listed medicine(s), but the exact condition is unclear.`;
+    }
+    if (analysis?.documentType === 'prescription') {
+      return 'Handwritten prescription detected. Use Edit Extracted Text to improve diagnosis and schedule details.';
+    }
+    return 'Document analyzed. Add clearer text input for more detailed findings.';
+  };
+
+  const getFamilySummaryText = (analysis: any) => {
+    const summary = String(analysis?.familySummary || '').trim();
+    if (summary) return summary;
+    return 'Family summary not available because the document text was unclear.';
+  };
+
+  const handleImproveExtraction = () => {
+    setActiveTab('dashboard');
+    setShowTextInput(true);
+    if (!textInput.trim() && lastExtractedText.trim()) {
+      setTextInput(lastExtractedText);
+    }
+    showToast('Review the extracted text and click Analyze Text.', 'info');
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#050B1F] flex items-center justify-center">
@@ -136,11 +165,13 @@ export default function App() {
 
       if (!extractedText || extractedText.trim().length < 50) {
         setErrorMsg('Could not extract enough text. Please try a clearer image or paste text directly.');
+        setLastExtractedText(extractedText || '');
         setLoading(false);
         return;
       }
 
       setLoadingStep('Analyzing with AI...');
+      setLastExtractedText(extractedText);
       const jsonResult = await analyzeDocument(extractedText, patientAge, language);
       setResult(jsonResult);
       setActiveTab('reports');
@@ -168,9 +199,11 @@ export default function App() {
         content: m.text
       }));
       const response = await chatWithDocument(chatInput, result, groqHistory);
-      setChatHistory([...newHistory, { role: 'ai', text: response || '' }]);
-    } catch (error) {
-      setChatHistory([...newHistory, { role: 'ai', text: "Sorry, I couldn't process that request." }]);
+      const reply = String(response || '').trim() || 'I could not find a clear answer in your document. Please try asking in a different way.';
+      setChatHistory([...newHistory, { role: 'ai', text: reply }]);
+    } catch (error: any) {
+      const errText = String(error?.message || '').trim();
+      setChatHistory([...newHistory, { role: 'ai', text: errText || "Sorry, I couldn't process that request." }]);
     } finally {
       setIsTyping(false);
     }
@@ -636,6 +669,9 @@ export default function App() {
                   <div className="lg:col-span-2 space-y-6">
                     {result.medications && result.medications.length > 0 ? (
                       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 text-xs text-slate-600">
+                          Colored circles in M/A/E/N show planned dose timing slots, not already taken doses.
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left">
                             <thead>
@@ -659,11 +695,16 @@ export default function App() {
                                 const CheckCircle = ({ active }: { active: boolean }) => (
                                   <div className="flex justify-center">
                                     {active ? (
-                                      <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
-                                        <Check className="w-4 h-4 text-white" />
+                                      <div
+                                        className="w-6 h-6 rounded-full bg-blue-500 border border-blue-600 shadow-sm"
+                                        title="Scheduled dose slot"
+                                      >
                                       </div>
                                     ) : (
-                                      <div className="w-6 h-6 rounded-full border-2 border-slate-200"></div>
+                                      <div
+                                        className="w-6 h-6 rounded-full border-2 border-slate-200"
+                                        title="No scheduled dose"
+                                      ></div>
                                     )}
                                   </div>
                                 );
@@ -767,9 +808,26 @@ export default function App() {
                     <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
                       <h3 className="text-blue-600 text-xs font-bold tracking-widest uppercase mb-6 font-headline">Plain-Language Analysis</h3>
                       <p className="text-lg text-slate-600 leading-relaxed">
-                        {result.diagnosis || "Analysis complete."}
+                        {getDiagnosisText(result)}
                       </p>
                     </div>
+
+                    {(result.extractionWarning || result.documentQuality === 'low_quality' || result.documentQuality === 'too_short') && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                        <p className="text-sm text-amber-800 font-medium">
+                          {result.extractionWarning || 'The uploaded image text is hard to read. Some fields may be incomplete.'}
+                        </p>
+                        <p className="text-xs text-amber-700 mt-2">
+                          For better output, upload a clearer photo or use Paste Text in the dashboard.
+                        </p>
+                        <button
+                          onClick={handleImproveExtraction}
+                          className="mt-3 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold px-3 py-2 rounded-lg transition-colors"
+                        >
+                          Edit Extracted Text
+                        </button>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Quick Share */}
@@ -780,7 +838,7 @@ export default function App() {
                         <div className="relative z-10 h-full flex flex-col">
                           <h3 className="text-blue-300 text-xs font-bold tracking-widest uppercase mb-4 font-headline">Family Summary</h3>
                           <p className="text-xl font-medium italic mb-8 flex-1">
-                            &quot;{result.familySummary}&quot;
+                            {getFamilySummaryText(result)}
                           </p>
                           <button 
                             onClick={handleCopyFamilySummary}
