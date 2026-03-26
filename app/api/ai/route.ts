@@ -51,6 +51,10 @@ function getGroqApiKey() {
     throw new Error("Missing GROQ_API_KEY (or groq_api_key). Set it in your environment variables.");
   }
 
+  if (!/^gsk_[A-Za-z0-9]+$/.test(apiKey)) {
+    throw new Error("Invalid GROQ_API_KEY format. It should start with 'gsk_'.");
+  }
+
   return apiKey;
 }
 
@@ -94,6 +98,13 @@ async function callGroq(messages: any[], temperature: number, maxTokens: number,
 
   if (!response.ok) {
     const providerError = parsed?.error?.message || responseText || "Unknown Groq error";
+
+    if (response.status === 401) {
+      throw new Error(
+        "Groq API error (401): Invalid API Key. Generate a new key at https://console.groq.com/keys, update GROQ_API_KEY in .env.local, then restart the Next.js server."
+      );
+    }
+
     throw new Error(`Groq API error (${response.status}): ${providerError}`);
   }
 
@@ -166,7 +177,13 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("AI route error:", error);
     const message = error?.message || "AI request failed";
-    const status = message.toLowerCase().includes("missing groq_api_key") ? 400 : 500;
+    const normalized = message.toLowerCase();
+    const status =
+      normalized.includes("missing groq_api_key") || normalized.includes("invalid groq_api_key format")
+        ? 400
+        : normalized.includes("groq api error (401)")
+          ? 401
+          : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
