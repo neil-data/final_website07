@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import gsap from 'gsap';
 import { 
   LayoutDashboard, Calendar, FileText, AlertTriangle, Settings, HelpCircle, 
   Bell, User, Search, UploadCloud, ChevronRight, Check, Clock, Phone, 
@@ -11,6 +12,7 @@ import { analyzeDocument, chatWithDocument } from '../lib/api';
 import LandingPage from '@/components/LandingPage';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { parseImage } from '../utils/ocrParser';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -42,6 +44,15 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const mobileTabs: Array<{ id: 'dashboard' | 'schedule' | 'reports' | 'alerts' | 'chatbot'; label: string; icon: any }> = [
+    { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { id: 'schedule', label: 'Schedule', icon: Calendar },
+    { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
+    { id: 'chatbot', label: 'Chat', icon: MessageSquare },
+  ];
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
     setToast({ message, type });
@@ -51,6 +62,24 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isTyping]);
+
+  useEffect(() => {
+    if (!contentRef.current) return;
+    const targets = contentRef.current.querySelectorAll('[data-reveal]');
+    if (!targets.length) return;
+
+    gsap.fromTo(
+      targets,
+      { y: 24, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        stagger: 0.06,
+        duration: 0.45,
+        ease: 'power2.out',
+      }
+    );
+  }, [activeTab]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -158,7 +187,6 @@ export default function App() {
           extractedText = await parsePDF(selectedFile);
         } else if (fileType.startsWith('image/')) {
           setLoadingStep('Reading image with OCR...');
-          const { parseImage } = await import('../utils/ocrParser');
           extractedText = await parseImage(selectedFile);
         }
       }
@@ -315,7 +343,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen bg-[#F5F7FA] font-sans text-slate-800 overflow-hidden">
+    <div className="flex min-h-screen md:h-screen bg-[#F5F7FA] font-sans text-slate-800 overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex z-10">
         <div className="p-6">
@@ -360,23 +388,12 @@ export default function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-20">
-          <div className="flex items-center gap-6">
+        <header className="h-16 md:h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20">
+          <div className="flex items-center gap-4 md:gap-6">
             <h2 className="text-xl font-bold text-[#0B173E] capitalize md:hidden font-headline">Medyrax</h2>
-            <div className="md:hidden flex gap-4 overflow-x-auto pb-1">
-              {['dashboard', 'schedule', 'reports', 'alerts', 'chatbot'].map(tab => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)}
-                  className={`text-sm font-medium capitalize whitespace-nowrap ${activeTab === tab ? 'text-[#1A36A8] border-b-2 border-[#1A36A8]' : 'text-slate-500'}`}
-                >
-                  {tab.replace('alerts', 'safety alerts')}
-                </button>
-              ))}
-            </div>
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-6">
             <div className="relative hidden lg:block">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input 
@@ -398,20 +415,20 @@ export default function App() {
         </header>
 
         {/* Scrollable Area */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
-          <div className="max-w-6xl mx-auto h-full">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 custom-scrollbar">
+          <div ref={contentRef} className="max-w-6xl mx-auto h-full">
             
             {/* --- DASHBOARD TAB --- */}
             {activeTab === 'dashboard' && (
               <div className="animate-in fade-in duration-300">
-                <div className="mb-8">
+                <div className="mb-6 md:mb-8" data-reveal>
                   <h1 className="text-3xl font-bold text-[#0B173E] mb-2 font-headline">Clinical Dashboard</h1>
                   <p className="text-slate-500">Manage your prescriptions and health insights with AI-powered precision.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-2 space-y-8">
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                    <div className="bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100" data-reveal>
                       <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-[#0B173E] font-headline">Upload Medical Document</h3>
                         <div className="flex gap-2">
@@ -511,7 +528,7 @@ export default function App() {
                     </div>
 
                     {/* Recent Activity */}
-                    <div>
+                    <div data-reveal>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-[#0B173E] font-headline">Recent Activity</h3>
                         <button className="text-[#1A36A8] text-sm font-medium hover:underline">View All History</button>
@@ -553,7 +570,7 @@ export default function App() {
                   <div className="space-y-6">
                     {/* Transparency Panel */}
                     {result && (
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100" data-reveal>
                         <h3 className="text-lg font-bold text-[#0B173E] mb-4 font-headline">Analysis Quality</h3>
                         
                         <div className="space-y-4">
@@ -623,7 +640,7 @@ export default function App() {
                     )}
 
                     {/* Medyrax Status */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100" data-reveal>
                       <h3 className="text-lg font-bold text-[#0B173E] mb-6 font-headline">Medyrax Status</h3>
                       <div className="space-y-4">
                         <div className="flex items-start gap-3">
@@ -658,7 +675,7 @@ export default function App() {
             {activeTab === 'schedule' && (
               !result ? <EmptyState title="No Schedule Available" message="Upload a prescription to generate your automated medication schedule." /> :
               <div className="animate-in fade-in duration-300">
-                <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4" data-reveal>
                   <div>
                     <h1 className="text-3xl font-bold text-[#0B173E] mb-2 font-headline">Medication Schedule</h1>
                     <p className="text-slate-500">View and manage your daily prescriptions. Accuracy is our priority.</p>
@@ -668,7 +685,7 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-2 space-y-6">
                     {result.medications && result.medications.length > 0 ? (
-                      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden" data-reveal>
                         <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 text-xs text-slate-600">
                           Colored circles in M/A/E/N show planned dose timing slots, not already taken doses.
                         </div>
@@ -749,7 +766,7 @@ export default function App() {
                   </div>
 
                   <div className="space-y-6">
-                    <div className="bg-[#0B173E] rounded-3xl p-8 text-white shadow-lg">
+                    <div className="bg-[#0B173E] rounded-3xl p-6 md:p-8 text-white shadow-lg" data-reveal>
                       <h3 className="text-blue-300 text-xs font-bold tracking-widest uppercase mb-4 font-headline">Next Dose Reminder</h3>
                       <div className="text-5xl font-bold mb-6 tracking-tight">
                         08:00 <span className="text-xl text-blue-300 font-medium">AM</span>
@@ -779,7 +796,7 @@ export default function App() {
             {activeTab === 'reports' && (
               !result ? <EmptyState title="No Analysis Available" message="Upload a medical document to view the AI-generated analysis." /> :
               <div className="animate-in fade-in duration-300">
-                <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4" data-reveal>
                   <div className="flex items-center gap-4 flex-wrap">
                     <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
                       <Check className="w-3 h-3" /> ANALYSIS COMPLETE
@@ -805,7 +822,7 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-2 space-y-6">
                     {/* Diagnosis */}
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                    <div className="bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100" data-reveal>
                       <h3 className="text-blue-600 text-xs font-bold tracking-widest uppercase mb-6 font-headline">Plain-Language Analysis</h3>
                       <p className="text-lg text-slate-600 leading-relaxed">
                         {getDiagnosisText(result)}
@@ -831,7 +848,7 @@ export default function App() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Quick Share */}
-                      <div className="bg-[#0B173E] rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
+                      <div className="bg-[#0B173E] rounded-3xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden" data-reveal>
                         <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4">
                           <Share2 className="w-32 h-32" />
                         </div>
@@ -850,7 +867,7 @@ export default function App() {
                       </div>
 
                       {/* Follow Up */}
-                      <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 flex flex-col">
+                      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col" data-reveal>
                         <h3 className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-4 font-headline">Follow-up</h3>
                         <div className="space-y-2 flex-1">
                           {getFollowUpArray(result.followUp).length > 0 ? (
@@ -876,7 +893,7 @@ export default function App() {
 
                   {/* Right Column — Jargon */}
                   <div className="space-y-6 flex flex-col h-full">
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex-1">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex-1" data-reveal>
                       <div className="flex items-center gap-2 mb-6">
                         <FileText className="w-5 h-5 text-[#1A36A8]" />
                         <h3 className="font-bold text-[#0B173E] font-headline">Medical Terms Decoded</h3>
@@ -894,7 +911,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100" data-reveal>
                       <div className="flex items-start gap-3 mb-4">
                         <div className="w-8 h-8 bg-[#0B173E] rounded-full flex items-center justify-center shrink-0">
                           <MessageSquare className="w-4 h-4 text-white" />
@@ -920,7 +937,7 @@ export default function App() {
             {activeTab === 'alerts' && (
               !result ? <EmptyState title="No Alerts" message="Upload a document to scan for safety alerts." /> :
               <div className="animate-in fade-in duration-300">
-                <div className="mb-8">
+                <div className="mb-8" data-reveal>
                   <h1 className="text-3xl font-bold text-[#0B173E] mb-2 font-headline">Safety & Alerts</h1>
                   <p className="text-slate-500">Active monitoring for your current document.</p>
                 </div>
@@ -946,7 +963,7 @@ export default function App() {
                     )}
 
                     {/* Doctor Call Warnings */}
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                    <div className="bg-white rounded-3xl p-5 md:p-8 shadow-sm border border-slate-100" data-reveal>
                       <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
                         <ShieldAlert className="w-5 h-5 text-red-500" />
                         <h3 className="text-lg font-bold text-[#0B173E] font-headline">When to Call the Doctor</h3>
@@ -967,7 +984,7 @@ export default function App() {
                   </div>
 
                   <div className="space-y-6">
-                    <div className="bg-[#0B173E] rounded-3xl p-6 text-white shadow-lg">
+                    <div className="bg-[#0B173E] rounded-3xl p-6 text-white shadow-lg" data-reveal>
                       <div className="flex items-center gap-2 mb-6">
                         <Phone className="w-5 h-5 text-blue-300" />
                         <h3 className="font-bold text-lg font-headline">Emergency</h3>
@@ -1005,12 +1022,12 @@ export default function App() {
             {/* --- CHATBOT TAB --- */}
             {activeTab === 'chatbot' && (
               <div className="animate-in fade-in duration-300 h-full flex flex-col">
-                <div className="mb-6">
+                <div className="mb-6" data-reveal>
                   <h1 className="text-3xl font-bold text-[#0B173E] mb-2 font-headline">AI Health Assistant</h1>
                   <p className="text-slate-500">Ask questions about your uploaded document. Answers come only from your document.</p>
                 </div>
 
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden" data-reveal>
                   <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                     {chatHistory.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center">
@@ -1230,6 +1247,25 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-md px-2 py-2">
+        <div className="grid grid-cols-5 gap-1">
+          {mobileTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-[10px] font-semibold ${isActive ? 'text-[#1A36A8] bg-blue-50' : 'text-slate-500'}`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

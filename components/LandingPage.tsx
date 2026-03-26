@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "motion/react";
-import { Activity, Shield, Zap, ChevronDown, ArrowRight, Brain, HeartPulse, Stethoscope, Mail, User, Sparkles } from "lucide-react";
+import { motion, AnimatePresence, useScroll, useTransform } from "motion/react";
+import { Activity, Shield, Zap, ChevronDown, ArrowRight, Brain, HeartPulse, Stethoscope, Mail, User, Sparkles, Menu, X } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { auth, googleProvider } from "../lib/firebase";
@@ -11,6 +11,8 @@ import { signInWithPopup } from "firebase/auth";
 export default function LandingPage({ onLogin }: { onLogin: () => void }) {
   const [loading, setLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const homeSectionRef = useRef<HTMLElement>(null);
@@ -21,6 +23,23 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const navLinks = [
+    { id: "home", label: "Home" },
+    { id: "about", label: "About Us" },
+    { id: "problem", label: "Problem" },
+    { id: "solution", label: "Solution" },
+    { id: "contact", label: "Contact" },
+  ];
+
+  const handleNavClick = (sectionId: string) => {
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+
+    const offset = 84;
+    const top = target.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: "smooth" });
+    setMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -31,6 +50,18 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
 
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
+
+      const midpoint = window.scrollY + window.innerHeight * 0.3;
+      let current = "home";
+
+      for (const link of navLinks) {
+        const section = document.getElementById(link.id);
+        if (section && section.offsetTop <= midpoint) {
+          current = link.id;
+        }
+      }
+
+      setActiveSection(current);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -45,11 +76,23 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
 
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("mousemove", handleMouseMove);
+    handleScroll();
     return () => {
       clearTimeout(timer);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("mousemove", handleMouseMove);
     };
+  }, []);
+
+  useEffect(() => {
+    const closeMenu = () => {
+      if (window.innerWidth >= 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", closeMenu);
+    return () => window.removeEventListener("resize", closeMenu);
   }, []);
 
   useEffect(() => {
@@ -249,7 +292,7 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
       </AnimatePresence>
 
       {/* Navbar */}
-      <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-md border-b border-slate-200 py-4 shadow-sm' : 'bg-transparent py-6'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-white/85 backdrop-blur-md border-b border-slate-200 py-3' : 'bg-transparent py-5'}`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#1A36A8] rounded-lg flex items-center justify-center">
@@ -258,25 +301,62 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
             <span className="text-xl font-bold tracking-wide text-[#0B173E] font-headline">Medyrax</span>
           </div>
           
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-500 font-body">
-            <a href="#home" className="hover:text-[#1A36A8] transition-colors">Home</a>
-            <a href="#about" className="hover:text-[#1A36A8] transition-colors">About Us</a>
-            <a href="#problem" className="hover:text-[#1A36A8] transition-colors">Problem</a>
-            <a href="#solution" className="hover:text-[#1A36A8] transition-colors">Solution</a>
-            <a href="#contact" className="hover:text-[#1A36A8] transition-colors">Contact</a>
+          <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-500 font-body">
+            {navLinks.map((link) => (
+              <button
+                key={link.id}
+                onClick={() => handleNavClick(link.id)}
+                className={`transition-colors ${activeSection === link.id ? 'text-[#1A36A8]' : 'hover:text-[#1A36A8]'}`}
+              >
+                {link.label}
+              </button>
+            ))}
           </div>
 
-          <button 
-            onClick={handleGoogleLogin}
-            className="bg-[#1A36A8] hover:bg-[#12267a] text-white px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 transition-all shadow-md font-body"
-          >
-            <User className="w-4 h-4" /> Sign In
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleGoogleLogin}
+              className="bg-[#1A36A8] hover:bg-[#12267a] text-white px-4 md:px-5 py-2 rounded-full text-xs md:text-sm font-bold flex items-center gap-2 transition-all shadow-md font-body"
+            >
+              <User className="w-4 h-4" /> <span className="hidden sm:inline">Sign In</span>
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="md:hidden p-2 rounded-lg border border-slate-200 bg-white/80 text-slate-700"
+              aria-label="Toggle mobile menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur px-6 py-4"
+            >
+              <div className="flex flex-col gap-2">
+                {navLinks.map((link) => (
+                  <button
+                    key={link.id}
+                    onClick={() => handleNavClick(link.id)}
+                    className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${activeSection === link.id ? 'bg-blue-50 text-[#1A36A8]' : 'text-slate-600 hover:bg-slate-100'}`}
+                  >
+                    {link.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Hero Section */}
-      <section id="home" ref={homeSectionRef} className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden perspective-1000">
+      <section id="home" ref={homeSectionRef} className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden perspective-1000 scroll-mt-24">
         {/* Background Effects */}
         <motion.div 
           style={{ y, opacity }}
@@ -380,7 +460,7 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
       </section>
 
       {/* About Us */}
-      <section id="about" ref={aboutSectionRef} className="py-32 px-6 relative">
+      <section id="about" ref={aboutSectionRef} className="py-24 md:py-32 px-6 relative scroll-mt-24">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div data-gsap-about>
@@ -424,7 +504,7 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
       </section>
 
       {/* Problem & Solution Bento Box */}
-      <section id="problem" ref={problemSectionRef} className="py-32 px-6 bg-white">
+      <section id="problem" ref={problemSectionRef} className="py-24 md:py-32 px-6 bg-white scroll-mt-24">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20" data-gsap-problem>
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-[#0B173E] font-headline">The Problem & Our Solution</h2>
@@ -433,7 +513,7 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6" id="solution" ref={solutionSectionRef}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 scroll-mt-24" id="solution" ref={solutionSectionRef}>
             {/* Problem Card */}
             <motion.div 
               whileHover={{ y: -10, scale: 1.02 }}
@@ -466,7 +546,7 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
                 <p className="text-slate-600 leading-relaxed mb-8 max-w-xl font-body">
                   Simply upload your lab results or prescriptions. Our AI instantly translates clinical terminology into plain English, highlights critical interactions, and generates a personalized action plan.
                 </p>
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#1A36A8] font-body">
                     <CheckCircle className="w-4 h-4" /> Instant Analysis
                   </div>
@@ -481,7 +561,7 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
       </section>
 
       {/* Contact Form */}
-      <section id="contact" className="py-32 px-6 relative">
+      <section id="contact" className="py-24 md:py-32 px-6 relative scroll-mt-24">
         <div className="max-w-3xl mx-auto bg-white border border-slate-200 p-10 md:p-16 rounded-[40px] shadow-xl">
           <div className="text-center mb-10">
             <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
